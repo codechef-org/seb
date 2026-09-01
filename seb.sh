@@ -127,18 +127,25 @@ log "      System Settings > Privacy & Security, then relaunch."
 if [[ -n "$START_URL" ]]; then
   log "Launching Safe Exam Browser with start URL..."
 
-  # Force-kill Terminal ourselves, right after the open request is dispatched â€”
-  # no confirmation, no Automation permission needed â€” so SEB's own "close Terminal"
-  # kiosk prompt never fires (that prompt is what makes people re-run the command
-  # and double-launch). `open` runs in the foreground first: backgrounding it
-  # alongside the killall raced the two, and killall could win before `open` had
-  # actually handed the launch request to Launch Services, killing Terminal (and
-  # this script, and the in-flight open) before SEB ever launched.
+  # Force-kill the terminal we're running in ourselves, right after the open
+  # request is dispatched â€” no confirmation, no Automation permission needed â€”
+  # so SEB's own "close Terminal" kiosk prompt never fires (that prompt is what
+  # makes people re-run the command and double-launch). `open` runs in the
+  # foreground first: backgrounding it alongside the killall raced the two, and
+  # killall could win before `open` had actually handed the launch request to
+  # Launch Services, killing the terminal (and this script, and the in-flight
+  # open) before SEB ever launched.
   open "$START_URL"
-  if [[ "${TERM_PROGRAM:-}" == "Apple_Terminal" ]]; then
-    killall -9 Terminal >/dev/null 2>&1 &
-    wait
-  fi
+  case "${TERM_PROGRAM:-}" in
+    Apple_Terminal)
+      killall -9 Terminal >/dev/null 2>&1 &
+      wait
+      ;;
+    iTerm.app)
+      killall -9 iTerm2 >/dev/null 2>&1 &
+      wait
+      ;;
+  esac
 else
   log "No start URL supplied, opening Safe Exam Browser normally."
   open -a "Safe Exam Browser"
