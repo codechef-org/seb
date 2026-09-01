@@ -15,7 +15,7 @@ FALLBACK_MAC_VERSION="3.7"
 FALLBACK_MAC_DMG_URL="https://github.com/SafeExamBrowser/seb-mac/releases/download/3.7/SafeExamBrowser-3.7.dmg"
 
 # ---- Exam config URL template; only the contest code varies per exam ----
-SEB_URL_TEMPLATE="seb://www.codechef.com/api/assess/%s/seb-config"
+SEB_URL_TEMPLATE="seb://staging.codechef.com/api/assess/%s/seb-config"
 
 CONTEST_CODE="${1:-}"
 START_URL=""

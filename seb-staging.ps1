@@ -19,7 +19,7 @@ $FallbackWinVersion = "3.10.2.920"
 $FallbackWinInstallerUrl = "https://github.com/SafeExamBrowser/seb-win-refactoring/releases/download/v3.10.2/SEB_3.10.2.920_SetupBundle.exe"
 
 # ---- Exam config URL template; only the contest code varies per exam ----
-$SebUrlTemplate = "seb://www.codechef.com/api/assess/{0}/seb-config"
+$SebUrlTemplate = "seb://staging.codechef.com/api/assess/{0}/seb-config"
 $StartUrl = ""
 if ($ContestCode) {
     $StartUrl = $SebUrlTemplate -f $ContestCode
