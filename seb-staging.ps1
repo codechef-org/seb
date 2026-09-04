@@ -154,6 +154,22 @@ if ($resetter) {
     Start-Process -FilePath $resetter.FullName -Wait -ErrorAction SilentlyContinue
 }
 
+# ---- 7.5 Reset mouse cursor to Windows default ----
+try {
+    Set-ItemProperty -Path "HKCU:\Control Panel\Cursors" -Name "(Default)" -Value "Windows Default" -ErrorAction SilentlyContinue
+    foreach ($cursorName in @("Arrow","Help","AppStarting","Wait","Crosshair","IBeam","NWPend","No","SizeNS","SizeWE","SizeNWSE","SizeNESW","SizeAll","UpArrow","Hand","Pin","Person")) {
+        Remove-ItemProperty -Path "HKCU:\Control Panel\Cursors" -Name $cursorName -ErrorAction SilentlyContinue
+    }
+    Add-Type -Namespace SebCursor -Name NativeMethods -MemberDefinition @"
+[DllImport("user32.dll", SetLastError = true)]
+public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, IntPtr pvParam, uint fWinIni);
+"@ -ErrorAction SilentlyContinue
+    [SebCursor.NativeMethods]::SystemParametersInfo(0x0057, 0, [IntPtr]::Zero, 0) | Out-Null
+    Log "Reset mouse cursor scheme to Windows default."
+} catch {
+    Log "Could not reset mouse cursor scheme - skipping."
+}
+
 # ---- 8. Launch with the exam start URL ----
 if ($StartUrl) {
     Log "Launching Safe Exam Browser with start URL..."
