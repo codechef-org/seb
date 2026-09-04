@@ -32,11 +32,20 @@ function Log($msg) {
     Add-Content -Path $LogFile -Value $line
 }
 
-# ---- 0. Elevation check ----
+# ---- 0. Self-elevation: relaunch as Administrator if not already ----
+$ScriptUrl = "https://seb.cchef.co/seb.ps1"
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
 if (-not $isAdmin) {
-    Write-Error "This script must be run from an elevated (Administrator) PowerShell. Right-click PowerShell > 'Run as administrator', then re-run the command."
-    exit 1
+    Write-Host "Not running elevated - requesting Administrator rights (a UAC prompt will appear)..."
+    $relaunch = "& ([scriptblock]::Create((irm '$ScriptUrl')))"
+    if ($ContestCode) { $relaunch += " -ContestCode '$ContestCode'" }
+    try {
+        Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $relaunch -ErrorAction Stop
+    } catch {
+        Write-Error "Elevation was cancelled or failed. Re-run from an elevated (Administrator) PowerShell instead."
+        exit 1
+    }
+    exit 0
 }
 
 $buildNumber = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').CurrentBuildNumber
