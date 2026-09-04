@@ -17,7 +17,7 @@ or
 & ([scriptblock]::Create((irm 'https://seb.cchef.co/seb.ps1'))) -ContestCode 'SEB'
 ```
 
-Mac
+## Mac
 
 ```
 curl -fsSL https://seb.cchef.co/seb.sh | bash -s -- "SEB"
