@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEB Setup — Batch File Generator</title>
+<style>
+  :root {
+    --bg: #eef1f6;
+    --surface: #ffffff;
+    --ink: #14181d;
+    --muted: #5b6470;
+    --line: #e2e6ee;
+    --accent: #5b53ff;
+    --accent-dark: #443dd6;
+    --term-bg: #14181d;
+    --term-line: #2a3038;
+    --term-text: #d7dde6;
+    --term-dim: #8b95a3;
+    --term-key: #7ee0b8;
+    --term-str: #ffb27a;
+    --danger: #d34d4d;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(900px 500px at 85% -10%, #e6e2ff 0%, transparent 60%),
+      var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 48px 20px;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 620px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: 0 24px 60px -30px rgba(20, 24, 29, 0.4);
+    overflow: hidden;
+  }
+
+  header {
+    padding: 30px 32px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+    margin: 0 0 10px;
+  }
+  .kicker .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+  }
+
+  h1 {
+    margin: 0 0 6px;
+    font-size: 26px;
+    letter-spacing: -0.02em;
+  }
+
+  header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 15px;
+    max-width: 52ch;
+  }
+
+  .body { padding: 26px 32px 32px; }
+
+  .field { margin-bottom: 20px; }
+
+  label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 7px;
+  }
+  label .hint {
+    font-weight: 400;
+    color: var(--muted);
+    margin-left: 6px;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    color: var(--ink);
+    background: #f8fafc;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(91, 83, 255, 0.18);
+  }
+  input.invalid {
+    border-color: var(--danger);
+  }
+  input.invalid:focus {
+    box-shadow: 0 0 0 3px rgba(211, 77, 77, 0.18);
+  }
+
+  .msg {
+    font-size: 13px;
+    color: var(--danger);
+    margin-top: 6px;
+    min-height: 16px;
+  }
+
+  .preview-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 4px 0 8px;
+  }
+  .preview-head .name {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .preview-head .name code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .copy-btn {
+    font: inherit;
+    font-size: 13px;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .copy-btn:hover { color: var(--ink); border-color: var(--muted); }
+  .copy-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .terminal {
+    background: var(--term-bg);
+    border: 1px solid var(--term-line);
+    border-radius: 12px;
+    padding: 16px 18px;
+    overflow-x: auto;
+  }
+  .terminal pre {
+    margin: 0;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--term-text);
+    white-space: pre;
+    tab-size: 2;
+  }
+  .terminal .c-dim { color: var(--term-dim); }
+  .terminal .c-key { color: var(--term-key); }
+  .terminal .c-str { color: var(--term-str); }
+
+  .download-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    margin-top: 24px;
+    padding: 15px 20px;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--accent);
+    border: none;
+    border-radius: 11px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.06s;
+  }
+  .download-btn:hover:not(:disabled) { background: var(--accent-dark); }
+  .download-btn:active:not(:disabled) { transform: translateY(1px); }
+  .download-btn:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 3px; }
+  .download-btn:disabled {
+    background: #c3c8d4;
+    cursor: not-allowed;
+  }
+  .download-btn svg { width: 18px; height: 18px; }
+
+  .status {
+    text-align: center;
+    font-size: 14px;
+    color: #1f9d6b;
+    margin-top: 14px;
+    min-height: 20px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .status.show { opacity: 1; }
+
+  footer {
+    padding: 16px 32px 22px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  footer strong { color: var(--ink); font-weight: 600; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+
+  @media (max-width: 520px) {
+    body { padding: 24px 14px; }
+    header, .body, footer { padding-left: 22px; padding-right: 22px; }
+    h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+  <main class="card">
+    <header>
+      <p class="kicker"><span class="dot"></span>Contest setup</p>
+      <h1>Generate your <code>seb.bat</code></h1>
+      <p>Enter your contest code, check the preview, then download the ready-to-run launcher.</p>
+    </header>
+
+    <div class="body">
+      <div class="field">
+        <label for="contestCode">Contest code</label>
+        <input type="text" id="contestCode" value="SEB" autocomplete="off" spellcheck="false"
+               inputmode="text" aria-describedby="codeMsg">
+        <div class="msg" id="codeMsg"></div>
+      </div>
+
+      <div class="field">
+        <label for="scriptUrl">Script URL <span class="hint">— leave as-is unless told otherwise</span></label>
+        <input type="text" id="scriptUrl" value="https://seb.cchef.co/seb.ps1" autocomplete="off"
+               spellcheck="false" aria-describedby="urlMsg">
+        <div class="msg" id="urlMsg"></div>
+      </div>
+
+      <div class="preview-head">
+        <span class="name">Preview <code>seb.bat</code></span>
+        <button type="button" class="copy-btn" id="copyBtn">Copy</button>
+      </div>
+      <div class="terminal">
+        <pre id="preview"></pre>
+      </div>
+
+      <button type="button" class="download-btn" id="downloadBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/>
+        </svg>
+        Download seb.bat
+      </button>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+    </div>
+
+    <footer>
+      The file runs a PowerShell command that fetches and executes <strong>the script at the URL above</strong>,
+      passing your contest code. Only run it if you trust the source.
+    </footer>
+  </main>
+
+<script>
+(function () {
+  "use strict";
+
+  var codeInput = document.getElementById("contestCode");
+  var urlInput  = document.getElementById("scriptUrl");
+  var codeMsg   = document.getElementById("codeMsg");
+  var urlMsg    = document.getElementById("urlMsg");
+  var preview   = document.getElementById("preview");
+  var downloadBtn = document.getElementById("downloadBtn");
+  var copyBtn   = document.getElementById("copyBtn");
+  var status    = document.getElementById("status");
+  var statusTimer;
+
+  // Escape a value for display inside the HTML preview.
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  // Keep the contest code to characters that are safe inside the .bat / PowerShell
+  // single-quoted argument: letters, digits, underscore and hyphen.
+  function cleanCode(raw) {
+    return raw.toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+  }
+
+  function validUrl(raw) {
+    return /^https?:\/\/\S+$/i.test(raw.trim());
+  }
+
+  // Build the batch file contents. Windows batch files want CRLF line endings.
+  function buildBat(code, url) {
+    var lines = [
+      "@echo off",
+      "setlocal",
+      "",
+      'set "CONTEST_CODE=' + code + '"',
+      'set "SCRIPT_URL=' + url + '"',
+      "",
+      "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^",
+      "  \"& ([scriptblock]::Create((Invoke-RestMethod '%SCRIPT_URL%'))) -ContestCode '%CONTEST_CODE%'\"",
+      "",
+      "endlocal",
+      "pause"
+    ];
+    return lines.join("\r\n") + "\r\n";
+  }
+
+  // A lightly highlighted version of the preview (display only).
+  function renderPreview(code, url) {
+    var safeCode = esc(code || "");
+    var safeUrl  = esc(url || "");
+    preview.innerHTML =
+      '<span class="c-dim">@echo off</span>\n' +
+      'setlocal\n' +
+      '\n' +
+      'set <span class="c-str">"CONTEST_CODE=' + safeCode + '"</span>\n' +
+      'set <span class="c-str">"SCRIPT_URL=' + safeUrl + '"</span>\n' +
+      '\n' +
+      '<span class="c-key">powershell.exe</span> -NoProfile -ExecutionPolicy Bypass -Command ^\n' +
+      '  <span class="c-str">"&amp; ([scriptblock]::Create((Invoke-RestMethod \'%SCRIPT_URL%\'))) -ContestCode \'%CONTEST_CODE%\'"</span>\n' +
+      '\n' +
+      'endlocal\n' +
+      'pause';
+  }
+
+  function currentState() {
+    var code = cleanCode(codeInput.value);
+    var url  = urlInput.value.trim();
+    return { code: code, url: url };
+  }
+
+  function refresh() {
+    var s = currentState();
+
+    // Reflect the sanitized code back into the field if it changed.
+    if (codeInput.value !== s.code) {
+      var pos = codeInput.selectionStart;
+      codeInput.value = s.code;
+      if (pos !== null) { try { codeInput.setSelectionRange(pos, pos); } catch (e) {} }
+    }
+
+    var codeOk = s.code.length > 0;
+    var urlOk  = validUrl(s.url);
+
+    codeInput.classList.toggle("invalid", !codeOk && codeInput.value.length === 0 && document.activeElement !== codeInput ? false : !codeOk);
+    urlInput.classList.toggle("invalid", !urlOk);
+
+    codeMsg.textContent = codeOk ? "" : "Enter a contest code (letters, numbers, - or _).";
+    urlMsg.textContent  = urlOk  ? "" : "Enter a valid http(s) URL.";
+
+    renderPreview(s.code, s.url);
+    downloadBtn.disabled = !(codeOk && urlOk);
+  }
+
+  function showStatus(text) {
+    status.textContent = text;
+    status.classList.add("show");
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(function () { status.classList.remove("show"); }, 4000);
+  }
+
+  function download() {
+    var s = currentState();
+    if (!s.code || !validUrl(s.url)) { refresh(); return; }
+
+    var content = buildBat(s.code, s.url);
+    var blob = new Blob([content], { type: "application/octet-stream" });
+    var link = document.createElement("a");
+    var href = URL.createObjectURL(blob);
+    link.href = href;
+    link.download = "seb.bat";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(function () { URL.revokeObjectURL(href); }, 1500);
+
+    showStatus("Downloaded seb.bat for contest \u201C" + s.code + "\u201D.");
+  }
+
+  function copy() {
+    var s = currentState();
+    var content = buildBat(s.code, s.url);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(content).then(function () {
+        copyBtn.textContent = "Copied";
+        setTimeout(function () { copyBtn.textContent = "Copy"; }, 1600);
+      });
+    }
+  }
+
+  codeInput.addEventListener("input", refresh);
+  urlInput.addEventListener("input", refresh);
+  downloadBtn.addEventListener("click", download);
+  copyBtn.addEventListener("click", copy);
+
+  refresh();
+})();
+</script>
+</body>
+</html>
