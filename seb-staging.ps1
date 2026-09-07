@@ -52,6 +52,11 @@ $buildNumber = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVer
 Log "Safe Exam Browser preflight starting on Windows build $buildNumber"
 
 # ---- 1. Stop known-conflict services ----
+# Chrome Remote Desktop's "chromoting" service can register as a foreground-
+# capable/remote-access process (a red flag for SEB's prohibited-process
+# detection) and its remoting_host.exe can steal focus from SEB's kiosk
+# window even before that check fires — stop and disable it so it can't
+# relaunch on reboot.
 foreach ($svc in @("chromoting", "Safe Exam Browser Service")) {
     $s = Get-Service -Name $svc -ErrorAction SilentlyContinue
     if ($s -and $s.Status -eq "Running") {
@@ -60,6 +65,7 @@ foreach ($svc in @("chromoting", "Safe Exam Browser Service")) {
     }
 }
 try { Set-Service -Name "chromoting" -StartupType Disabled -ErrorAction SilentlyContinue } catch {}
+Get-Process -Name "remoting_host" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
 # ---- 2. Kill any running SEB process ----
 Get-Process -Name "SafeExamBrowser" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
