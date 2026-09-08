@@ -239,13 +239,13 @@
         <div class="msg" id="urlMsg"></div>
       </div>
 
-      <!-- macOS: run in Terminal -->
-      <div id="macBlock" hidden>
+      <!-- Command to copy/paste, shown for both OSes -->
+      <div id="cmdBlock">
         <div class="cmd">
           <code id="cmdText"></code>
           <button type="button" class="copy" id="copyCmdBtn">Copy</button>
         </div>
-        <p class="note">Paste into <strong>Terminal</strong> and press Return. Or download the file below.</p>
+        <p class="note" id="cmdNote"></p>
         <div class="divider">or</div>
       </div>
 
@@ -286,8 +286,9 @@
     url:    document.getElementById("scriptUrl"),
     codeMsg:document.getElementById("codeMsg"),
     urlMsg: document.getElementById("urlMsg"),
-    macBlock: document.getElementById("macBlock"),
+    cmdBlock: document.getElementById("cmdBlock"),
     cmdText:  document.getElementById("cmdText"),
+    cmdNote:  document.getElementById("cmdNote"),
     copyCmd:  document.getElementById("copyCmdBtn"),
     download: document.getElementById("downloadBtn"),
     dlName:   document.getElementById("dlName"),
@@ -350,6 +351,11 @@
     return 'curl -fsSL ' + url + ' | bash -s -- "' + code + '"';
   }
 
+  function buildPowerShell(code, url) {
+    return "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& ([scriptblock]::Create((irm '" +
+      url + "'))) -ContestCode '" + code + "'\"";
+  }
+
   function buildCommandFile(code, url) {
     return "#!/bin/bash\n" + buildCurl(code, url) + "\n";
   }
@@ -382,7 +388,6 @@
     el.tabWin.setAttribute("aria-selected", String(!isMac));
     el.tabMac.setAttribute("aria-selected", String(isMac));
 
-    el.macBlock.hidden = !isMac;
     el.macNote.hidden = !isMac;
     el.dlName.textContent = isMac ? "seb.command" : "seb.bat";
 
@@ -407,10 +412,17 @@
     el.codeMsg.textContent = codeOk ? "" : "Enter a contest code (letters, numbers, - or _).";
     el.urlMsg.textContent  = urlOk  ? "" : "Enter a valid http(s) URL.";
 
-    // Live macOS command line.
-    el.cmdText.innerHTML =
-      '<span class="tok">curl</span> -fsSL ' + esc(s.url) +
-      ' | <span class="tok">bash</span> -s -- "' + esc(s.code) + '"';
+    // Live command line + instructions, per OS.
+    if (os === "mac") {
+      el.cmdText.innerHTML =
+        '<span class="tok">curl</span> -fsSL ' + esc(s.url) +
+        ' | <span class="tok">bash</span> -s -- "' + esc(s.code) + '"';
+      el.cmdNote.innerHTML = 'Paste into <strong>Terminal</strong> and press Return. Or download the file below.';
+    } else {
+      el.cmdText.textContent = buildPowerShell(s.code, s.url);
+      el.cmdNote.innerHTML =
+        'Press <strong>Win + R</strong>, paste this, then press Enter. Or download the file below.';
+    }
 
     el.download.disabled = !(codeOk && urlOk);
     el.copyCmd.disabled = !(codeOk && urlOk);
@@ -433,7 +445,7 @@
   el.copyCmd.addEventListener("click", function () {
     var s = state();
     if (!s.code || !validUrl(s.url)) { refresh(); return; }
-    var cmd = buildCurl(s.code, s.url);
+    var cmd = os === "mac" ? buildCurl(s.code, s.url) : buildPowerShell(s.code, s.url);
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(cmd).then(function () {
         el.copyCmd.textContent = "Copied";

@@ -98,12 +98,12 @@ function Test-VersionGe($a, $b) {
 }
 
 $needsInstall = $true
-if ($installedVersion -and (Test-VersionGe $installedVersion $latestVersion)) {
+if ($installedVersion -and (Test-VersionGe $installedVersion $FallbackWinVersion)) {
     $needsInstall = $false
-    Log "Installed SEB $installedVersion is up to date (latest: $latestVersion)."
+    Log "Installed SEB $installedVersion meets the minimum required version $FallbackWinVersion - skipping install (latest available: $latestVersion)."
 } else {
     $shown = if ($installedVersion) { $installedVersion } else { "none" }
-    Log "Installed SEB version: $shown. Latest available: $latestVersion. Will (re)install."
+    Log "Installed SEB version: $shown is older than the minimum required $FallbackWinVersion. Installing latest ($latestVersion)."
 }
 
 # ---- 4. Install/update if needed ----

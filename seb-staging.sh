@@ -70,11 +70,11 @@ fi
 version_ge() { [ "$1" = "$(printf '%s\n%s' "$1" "$2" | sort -V | tail -n1)" ]; }
 
 needs_install=true
-if [[ -n "$installed_version" ]] && version_ge "$installed_version" "$latest_version"; then
+if [[ -n "$installed_version" ]] && version_ge "$installed_version" "$FALLBACK_MAC_VERSION"; then
   needs_install=false
-  log "Installed SEB $installed_version is up to date (latest: $latest_version)."
+  log "Installed SEB $installed_version meets the minimum required version $FALLBACK_MAC_VERSION - skipping install (latest available: $latest_version)."
 else
-  log "Installed SEB version: ${installed_version:-none}. Latest available: $latest_version. Will (re)install."
+  log "Installed SEB version: ${installed_version:-none} is older than the minimum required $FALLBACK_MAC_VERSION. Installing latest ($latest_version)."
 fi
 
 # ---- 3. Install/update if needed ----
