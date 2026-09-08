@@ -115,7 +115,7 @@ if ($needsInstall) {
     Remove-Item -Recurse -Force "$env:LOCALAPPDATA\SafeExamBrowser" -ErrorAction SilentlyContinue
 
     if ($sebEntry -and $sebEntry.UninstallString) {
-        Log "Uninstalling existing Safe Exam Browser (best-effort)..."
+        Log "Uninstalling existing Safe Exam Browser ..."
         try {
             $parts = $sebEntry.UninstallString -split ' ', 2
             Start-Process -FilePath $parts[0].Trim('"') -ArgumentList "/uninstall /quiet /norestart" -Wait -ErrorAction SilentlyContinue
@@ -131,7 +131,7 @@ if ($needsInstall) {
     Log "Downloading Safe Exam Browser $latestVersion..."
     Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
 
-    Log "Installing Safe Exam Browser (silent)..."
+    Log "Installing Safe Exam Browser ..."
     Start-Process -FilePath $installerPath -ArgumentList "/install", "/quiet", "/norestart" -Wait
 
     Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
