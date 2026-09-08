@@ -1,6 +1,8 @@
 # seb
 CodeChef SEB Launch Config
 
+This runs one command that gets your computer ready for a CodeChef exam and opens it for you. You don't need to install anything yourself first — it takes care of that.
+
 ## Windows
 
 - Press Win + R
@@ -22,9 +24,6 @@ or
 ```
 curl -fsSL https://seb.cchef.co/seb.sh | bash -s -- "SEB"
 ```
-
-
-This runs one command that gets your computer ready for a CodeChef exam and opens it for you. You don't need to install anything yourself first — it takes care of that.
 
 ## Features Implemented
 
