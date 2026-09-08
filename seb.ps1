@@ -1,11 +1,4 @@
 # Safe Exam Browser preflight + install/update + launch — Windows
-#
-# Usage (after uploading to S3, from an ELEVATED PowerShell):
-#   & ([scriptblock]::Create((irm "https://s3.us-east-1.amazonaws.com/staging_shared/seb-launch/seb-launch.ps1"))) -ContestCode "SEB"
-#
-# -ContestCode is the contest code (e.g. "SEB"), not the full seb:// URL.
-# It's substituted into the fixed exam-config URL template below.
-# If no contest code is given, SEB is just installed/updated and opened normally.
 
 [CmdletBinding()]
 param(
@@ -14,16 +7,17 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# ---- Pinned fallback, used only if the GitHub API lookup below fails/is blocked ----
+# ---- Pinned version to install ----
 $FallbackWinVersion = "3.10.2.920"
-$FallbackWinInstallerUrl = "https://github.com/SafeExamBrowser/seb-win-refactoring/releases/download/v3.10.2/SEB_3.10.2.920_SetupBundle.exe"
+$FallbackWinInstallerUrl = "https://cdn.codechef.com/SafeExamBrowser/seb-win-refactoring/releases/download/v3.10.2/SEB_3.10.2.920_SetupBundle.exe"
 
 # ---- Exam config URL template; only the contest code varies per exam ----
 $SebUrlTemplate = "seb://www.codechef.com/api/assess/{0}/seb-config"
-$StartUrl = ""
-if ($ContestCode) {
-    $StartUrl = $SebUrlTemplate -f $ContestCode
+if (-not $ContestCode) {
+    Write-Error "Contest code not specified."
+    exit 1
 }
+$StartUrl = $SebUrlTemplate -f $ContestCode
 
 $LogFile = Join-Path $env:TEMP ("seb-launch-{0}.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
 function Log($msg) {
@@ -37,8 +31,7 @@ $ScriptUrl = "https://seb.cchef.co/seb.ps1"
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
 if (-not $isAdmin) {
     Write-Host "Not running elevated - requesting Administrator rights (a UAC prompt will appear)..."
-    $relaunch = "& ([scriptblock]::Create((irm '$ScriptUrl')))"
-    if ($ContestCode) { $relaunch += " -ContestCode '$ContestCode'" }
+    $relaunch = "& ([scriptblock]::Create((irm '$ScriptUrl'))) -ContestCode '$ContestCode'"
     try {
         Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $relaunch -ErrorAction Stop
     } catch {
@@ -70,7 +63,7 @@ Get-Process -Name "remoting_host" -ErrorAction SilentlyContinue | Stop-Process -
 # ---- 2. Kill any running SEB process ----
 Get-Process -Name "SafeExamBrowser" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
-# ---- 3. Determine installed vs. latest version ----
+# ---- 3. Determine installed vs. pinned version ----
 $installedVersion = $null
 $uninstallRoots = @(
     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
@@ -80,19 +73,6 @@ $sebEntry = Get-ItemProperty $uninstallRoots -ErrorAction SilentlyContinue |
     Where-Object { $_.DisplayName -like "Safe Exam Browser*" } | Select-Object -First 1
 if ($sebEntry) { $installedVersion = $sebEntry.DisplayVersion }
 
-$latestVersion = $FallbackWinVersion
-$installerUrl = $FallbackWinInstallerUrl
-try {
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/SafeExamBrowser/seb-win-refactoring/releases/latest" -TimeoutSec 6
-    $asset = $release.assets | Where-Object { $_.name -like "*SetupBundle.exe" } | Select-Object -First 1
-    if ($release.tag_name -and $asset) {
-        $latestVersion = $release.tag_name.TrimStart("v")
-        $installerUrl = $asset.browser_download_url
-    }
-} catch {
-    Log "GitHub API unreachable, using pinned fallback version $FallbackWinVersion"
-}
-
 function Test-VersionGe($a, $b) {
     try { return ([version]$a) -ge ([version]$b) } catch { return $false }
 }
@@ -100,10 +80,10 @@ function Test-VersionGe($a, $b) {
 $needsInstall = $true
 if ($installedVersion -and (Test-VersionGe $installedVersion $FallbackWinVersion)) {
     $needsInstall = $false
-    Log "Installed SEB $installedVersion meets the minimum required version $FallbackWinVersion - skipping install (latest available: $latestVersion)."
+    Log "Installed SEB $installedVersion meets the pinned version $FallbackWinVersion - skipping install."
 } else {
     $shown = if ($installedVersion) { $installedVersion } else { "none" }
-    Log "Installed SEB version: $shown is older than the minimum required $FallbackWinVersion. Installing latest ($latestVersion)."
+    Log "Installed SEB version: $shown is older than the pinned version $FallbackWinVersion. Installing pinned version."
 }
 
 # ---- 4. Install/update if needed ----
@@ -128,14 +108,14 @@ if ($needsInstall) {
     New-Item -ItemType Directory -Path $tmpDir | Out-Null
     $installerPath = Join-Path $tmpDir "SEB_Setup.exe"
 
-    Log "Downloading Safe Exam Browser $latestVersion..."
-    Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
+    Log "Downloading Safe Exam Browser $FallbackWinVersion..."
+    Invoke-WebRequest -Uri $FallbackWinInstallerUrl -OutFile $installerPath
 
     Log "Installing Safe Exam Browser ..."
     Start-Process -FilePath $installerPath -ArgumentList "/install", "/quiet", "/norestart" -Wait
 
     Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
-    Log "Safe Exam Browser $latestVersion installed."
+    Log "Safe Exam Browser $FallbackWinVersion installed."
 }
 
 # ---- 6. Known-conflict cleanup ----
@@ -186,18 +166,11 @@ public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, IntP
 }
 
 # ---- 8. Launch with the exam start URL ----
-if ($StartUrl) {
-    Log "Launching Safe Exam Browser with start URL..."
-    Start-Process $StartUrl
+Log "Launching Safe Exam Browser with start URL..."
+Start-Process $StartUrl
 
-    # Force-kill this console ourselves, immediately after launch — no confirmation
-    # — so SEB's own "close console" kiosk prompt never fires (that prompt is what
-    # makes people re-run the command and double-launch).
-    Log "Done. Log saved to $LogFile"
-    Stop-Process -Id $PID -Force
-} else {
-    Log "No start URL supplied, opening Safe Exam Browser normally."
-    $sebExe = Get-ChildItem "C:\Program Files*\SafeExamBrowser*" -Recurse -Filter "SafeExamBrowser.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($sebExe) { Start-Process $sebExe.FullName }
-    Log "Done. Log saved to $LogFile"
-}
+# Force-kill this console ourselves, immediately after launch — no confirmation
+# — so SEB's own "close console" kiosk prompt never fires (that prompt is what
+# makes people re-run the command and double-launch).
+Log "Done. Log saved to $LogFile"
+Stop-Process -Id $PID -Force
