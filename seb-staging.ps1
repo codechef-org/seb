@@ -2,7 +2,8 @@
 
 [CmdletBinding()]
 param(
-    [string]$ContestCode = ""
+    [string]$ContestCode = "",
+    [string]$LoginToken = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,6 +20,15 @@ if (-not $ContestCode) {
 }
 $StartUrl = $SebUrlTemplate -f $ContestCode
 
+# The token is interpolated into the elevated relaunch command, so only a strict 64-hex value is accepted.
+if ($LoginToken -and $LoginToken -cnotmatch '^[a-f0-9]{64}$') {
+    Write-Warning "Ignoring invalid login token; you will need to log in manually inside Safe Exam Browser."
+    $LoginToken = ""
+}
+if ($LoginToken) {
+    $StartUrl = "$StartUrl??seb_login_token=$LoginToken"
+}
+
 $LogFile = Join-Path $env:TEMP ("seb-launch-{0}.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
 function Log($msg) {
     $line = "[{0}] {1}" -f (Get-Date -Format "HH:mm:ss"), $msg
@@ -32,6 +42,9 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 if (-not $isAdmin) {
     Write-Host "Not running elevated - requesting Administrator rights (a UAC prompt will appear)..."
     $relaunch = "& ([scriptblock]::Create((irm '$ScriptUrl'))) -ContestCode '$ContestCode'"
+    if ($LoginToken) {
+        $relaunch += " -LoginToken '$LoginToken'"
+    }
     try {
         Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $relaunch -ErrorAction Stop
     } catch {

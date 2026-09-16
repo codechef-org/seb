@@ -16,6 +16,15 @@ if [[ -z "$CONTEST_CODE" ]]; then
   exit 1
 fi
 START_URL=$(printf "$SEB_URL_TEMPLATE" "$CONTEST_CODE")
+
+LOGIN_TOKEN="${2:-}"
+if [[ -n "$LOGIN_TOKEN" && ! "$LOGIN_TOKEN" =~ ^[a-f0-9]{64}$ ]]; then
+  echo "WARNING: Ignoring invalid login token; you will need to log in manually inside Safe Exam Browser." >&2
+  LOGIN_TOKEN=""
+fi
+if [[ -n "$LOGIN_TOKEN" ]]; then
+  START_URL="${START_URL}??seb_login_token=${LOGIN_TOKEN}"
+fi
 LOG_FILE="/tmp/seb-launch-$(date +%Y%m%d-%H%M%S).log"
 APP_PATH="/Applications/Safe Exam Browser.app"
 BUNDLE_ID_PRIMARY="org.safeexambrowser.SafeExamBrowser"
