@@ -22,8 +22,9 @@ $SebHost = switch ($Environment) {
 }
 
 # ---- Exam config URL template; only the contest code varies per exam ----
-# seb:// makes SEB fetch the config over http (sebs:// would force https).
-$SebUrlTemplate = "seb://$SebHost/api/assess/{0}/seb-config"
+# sebs:// makes SEB fetch the config over https; seb:// (local only) uses http.
+$SebScheme = if ($Environment -eq "local") { "seb" } else { "sebs" }
+$SebUrlTemplate = "${SebScheme}://$SebHost/api/assess/{0}/seb-config"
 if (-not $ContestCode) {
     Write-Error "Contest code not specified."
     exit 1

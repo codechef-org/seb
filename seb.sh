@@ -20,9 +20,9 @@ done
 set -- ${POSITIONAL[@]+"${POSITIONAL[@]}"}
 
 case "$SEB_ENV" in
-  production) SEB_HOST="www.codechef.com" ;;
-  staging)    SEB_HOST="staging.codechef.com" ;;
-  local)      SEB_HOST="www.acodechef.com" ;;
+  production) SEB_HOST="www.codechef.com";     SEB_SCHEME="sebs" ;;
+  staging)    SEB_HOST="staging.codechef.com"; SEB_SCHEME="sebs" ;;
+  local)      SEB_HOST="www.acodechef.com";    SEB_SCHEME="seb" ;;
   *)
     echo "ERROR: Unknown --env '$SEB_ENV' (expected production, staging or local)." >&2
     exit 1
@@ -30,8 +30,8 @@ case "$SEB_ENV" in
 esac
 
 # ---- Exam config URL template; only the contest code varies per exam ----
-# seb:// makes SEB fetch the config over http (sebs:// would force https).
-SEB_URL_TEMPLATE="seb://${SEB_HOST}/api/assess/%s/seb-config"
+# sebs:// makes SEB fetch the config over https; seb:// (local only) uses http.
+SEB_URL_TEMPLATE="${SEB_SCHEME}://${SEB_HOST}/api/assess/%s/seb-config"
 
 CONTEST_CODE="${1:-}"
 if [[ -z "$CONTEST_CODE" ]]; then
