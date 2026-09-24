@@ -200,5 +200,5 @@ Start-Process $StartUrl
 # Force-kill this console ourselves, immediately after launch — no confirmation
 # — so SEB's own "close console" kiosk prompt never fires (that prompt is what
 # makes people re-run the command and double-launch).
-# Log "Done. Log saved to $LogFile"
-# Stop-Process -Id $PID -Force
+Log "Done. Log saved to $LogFile"
+Stop-Process -Id $PID -Force
