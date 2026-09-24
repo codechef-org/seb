@@ -3,7 +3,9 @@
 [CmdletBinding()]
 param(
     [string]$ContestCode = "",
-    [string]$LoginToken = ""
+    [string]$LoginToken = "",
+    [ValidateSet("production", "staging", "local")]
+    [string]$Environment = "production"
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,8 +14,16 @@ $ErrorActionPreference = "Stop"
 $FallbackWinVersion = "3.10.2.920"
 $FallbackWinInstallerUrl = "https://cdn.codechef.com/SafeExamBrowser/seb-win-refactoring/releases/download/v3.10.2/SEB_3.10.2.920_SetupBundle.exe"
 
+# ---- Target host; defaults to production ----
+$SebHost = switch ($Environment) {
+    "production" { "www.codechef.com" }
+    "staging"    { "staging.codechef.com" }
+    "local"      { "www.acodechef.com" }
+}
+
 # ---- Exam config URL template; only the contest code varies per exam ----
-$SebUrlTemplate = "seb://www.codechef.com/api/assess/{0}/seb-config"
+# seb:// makes SEB fetch the config over http (sebs:// would force https).
+$SebUrlTemplate = "seb://$SebHost/api/assess/{0}/seb-config"
 if (-not $ContestCode) {
     Write-Error "Contest code not specified."
     exit 1
@@ -45,6 +55,9 @@ if (-not $isAdmin) {
     if ($LoginToken) {
         $relaunch += " -LoginToken '$LoginToken'"
     }
+    if ($Environment -ne "production") {
+        $relaunch += " -Environment '$Environment'"
+    }
     try {
         Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $relaunch -ErrorAction Stop
     } catch {
@@ -56,6 +69,7 @@ if (-not $isAdmin) {
 
 $buildNumber = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').CurrentBuildNumber
 Log "Safe Exam Browser preflight starting on Windows build $buildNumber"
+Log "Target environment: $Environment ($SebHost)"
 
 # ---- 1. Stop known-conflict services ----
 # Chrome Remote Desktop's "chromoting" service can register as a foreground-

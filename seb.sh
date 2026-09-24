@@ -7,8 +7,31 @@ set -euo pipefail
 FALLBACK_MAC_VERSION="3.7"
 FALLBACK_MAC_DMG_URL="https://cdn.codechef.com/SafeExamBrowser/seb-mac/releases/download/3.7/SafeExamBrowser-3.7.dmg"
 
+# ---- Args: <contest-code> [login-token] [--env production|staging|local] ----
+SEB_ENV="production"
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --env)   SEB_ENV="${2:-}"; shift 2 || shift ;;
+    --env=*) SEB_ENV="${1#--env=}"; shift ;;
+    *)       POSITIONAL+=("$1"); shift ;;
+  esac
+done
+set -- ${POSITIONAL[@]+"${POSITIONAL[@]}"}
+
+case "$SEB_ENV" in
+  production) SEB_HOST="www.codechef.com" ;;
+  staging)    SEB_HOST="staging.codechef.com" ;;
+  local)      SEB_HOST="www.acodechef.com" ;;
+  *)
+    echo "ERROR: Unknown --env '$SEB_ENV' (expected production, staging or local)." >&2
+    exit 1
+    ;;
+esac
+
 # ---- Exam config URL template; only the contest code varies per exam ----
-SEB_URL_TEMPLATE="seb://www.codechef.com/api/assess/%s/seb-config"
+# seb:// makes SEB fetch the config over http (sebs:// would force https).
+SEB_URL_TEMPLATE="seb://${SEB_HOST}/api/assess/%s/seb-config"
 
 CONTEST_CODE="${1:-}"
 if [[ -z "$CONTEST_CODE" ]]; then
@@ -39,6 +62,7 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
 fi
 
 log "Safe Exam Browser preflight starting on macOS $(sw_vers -productVersion) ($(uname -m))"
+log "Target environment: $SEB_ENV ($SEB_HOST)"
 
 # ---- 1. Quit any running SEB cleanly ----
 if pgrep -x "Safe Exam Browser" >/dev/null 2>&1; then
