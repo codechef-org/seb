@@ -37,7 +37,7 @@ if ($LoginToken -and $LoginToken -cnotmatch '^[a-f0-9]{64}$') {
     $LoginToken = ""
 }
 if ($LoginToken) {
-    $StartUrl = "$StartUrl??seb_login_token=$LoginToken"
+    $StartUrl = "${StartUrl}??seb_login_token=$LoginToken"
 }
 
 $LogFile = Join-Path $env:TEMP ("seb-launch-{0}.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
