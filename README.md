@@ -45,6 +45,7 @@ By default the scripts target production (`www.codechef.com`). To point them at 
 - Closes the exam browser if it happens to already be open, so it can start fresh.
 - Checks whether you already have the exam browser installed, and whether it's the latest version.
 - Installs the exam browser if you don't have it yet, or updates it if your copy is outdated.
+- On Windows on ARM laptops (e.g. Snapdragon), installs the 32-bit exam browser and the Visual C++ runtime it needs, because there is no ARM version and the regular installer can fail there.
 - Makes a few small Windows settings changes so antivirus/proxy don't interfere and the exam browser can run smoothly.
 - Resets your mouse pointer back to normal, in case a previous exam changed it.
 - Opens the exam browser and takes you straight into your contest — no extra clicking needed.

@@ -14,6 +14,16 @@ $ErrorActionPreference = "Stop"
 $FallbackWinVersion = "3.10.3.960"
 $FallbackWinInstallerUrl = "https://cdn.codechef.com/SafeExamBrowser/seb-win-refactoring/releases/download/v3.10.3/SEB_3.10.3.960_SetupBundle.exe"
 
+# ---- Windows on ARM (e.g. Snapdragon) ----
+# SEB has no ARM64 build. The setup bundle can fail on ARM64 (0x80070666), so ARM64
+# machines get the 32-bit MSI, which runs under emulation, and its Visual C++ x86
+# prerequisite. The bundle normally installs that prerequisite; the MSI does not.
+$FallbackWinX86MsiUrl = "https://cdn.codechef.com/SafeExamBrowser/seb-win-refactoring/releases/download/v3.10.3/SEB_3.10.3.960_x86_Setup.msi"
+$VcRedistX86Urls = @(
+    "https://cdn.codechef.com/SafeExamBrowser/prerequisites/vc_redist.x86.exe",
+    "https://aka.ms/vs/17/release/vc_redist.x86.exe"
+)
+
 # ---- Target host; defaults to production ----
 $SebHost = switch ($Environment) {
     "production" { "www.codechef.com" }
@@ -69,7 +79,17 @@ if (-not $isAdmin) {
 }
 
 $buildNumber = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').CurrentBuildNumber
-Log "Safe Exam Browser preflight starting on Windows build $buildNumber"
+
+# The machine-wide value, read from the registry, reports ARM64 even when this
+# PowerShell process itself runs under x86/x64 emulation.
+$osArch = $null
+try {
+    $osArch = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' -ErrorAction Stop).PROCESSOR_ARCHITECTURE
+} catch {}
+if (-not $osArch) { $osArch = $env:PROCESSOR_ARCHITECTURE }
+$isArm64 = $osArch -eq "ARM64"
+
+Log "Safe Exam Browser preflight starting on Windows build $buildNumber ($osArch)"
 Log "Target environment: $Environment ($SebHost)"
 
 # ---- 1. Stop known-conflict services ----
@@ -97,8 +117,12 @@ $uninstallRoots = @(
     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
     "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
 )
-$sebEntry = Get-ItemProperty $uninstallRoots -ErrorAction SilentlyContinue |
-    Where-Object { $_.DisplayName -like "Safe Exam Browser*" } | Select-Object -First 1
+$sebEntries = @(Get-ItemProperty $uninstallRoots -ErrorAction SilentlyContinue |
+    Where-Object { $_.DisplayName -like "Safe Exam Browser*" })
+# A setup bundle install registers both the bundle and its MSI. Prefer the bundle
+# entry, since uninstalling through it also removes its registration.
+$sebEntry = $sebEntries | Where-Object { $_.UninstallString -and $_.UninstallString -notmatch '(?i)msiexec' } | Select-Object -First 1
+if (-not $sebEntry) { $sebEntry = $sebEntries | Select-Object -First 1 }
 if ($sebEntry) { $installedVersion = $sebEntry.DisplayVersion }
 
 function Test-VersionGe($a, $b) {
@@ -125,8 +149,14 @@ if ($needsInstall) {
     if ($sebEntry -and $sebEntry.UninstallString) {
         Log "Uninstalling existing Safe Exam Browser ..."
         try {
-            $parts = $sebEntry.UninstallString -split ' ', 2
-            Start-Process -FilePath $parts[0].Trim('"') -ArgumentList "/uninstall /quiet /norestart" -Wait -ErrorAction SilentlyContinue
+            $productCode = [regex]::Match($sebEntry.UninstallString, '\{[0-9A-Fa-f-]{36}\}').Value
+            if ($sebEntry.UninstallString -match '(?i)msiexec' -and $productCode) {
+                # MSI-only install (e.g. the ARM64 path below): the bundle's /uninstall switch doesn't apply.
+                Start-Process -FilePath "msiexec.exe" -ArgumentList "/x", $productCode, "/qn", "/norestart" -Wait -ErrorAction SilentlyContinue
+            } else {
+                $parts = $sebEntry.UninstallString -split ' ', 2
+                Start-Process -FilePath $parts[0].Trim('"') -ArgumentList "/uninstall /quiet /norestart" -Wait -ErrorAction SilentlyContinue
+            }
         } catch {
             Log "Uninstall step failed or not applicable, continuing with fresh install (installer upgrades in place)."
         }
@@ -134,13 +164,52 @@ if ($needsInstall) {
 
     $tmpDir = Join-Path $env:TEMP ("seb-install-" + [guid]::NewGuid())
     New-Item -ItemType Directory -Path $tmpDir | Out-Null
-    $installerPath = Join-Path $tmpDir "SEB_Setup.exe"
 
-    Log "Downloading Safe Exam Browser $FallbackWinVersion..."
-    Invoke-WebRequest -Uri $FallbackWinInstallerUrl -OutFile $installerPath
+    if ($isArm64) {
+        Log "Windows on ARM detected - installing the 32-bit (x86) build, which runs under emulation."
 
-    Log "Installing Safe Exam Browser ..."
-    Start-Process -FilePath $installerPath -ArgumentList "/install", "/quiet", "/norestart" -Wait
+        $vcRedistPath = Join-Path $tmpDir "vc_redist.x86.exe"
+        $vcRedistDownloaded = $false
+        foreach ($url in $VcRedistX86Urls) {
+            try {
+                Log "Downloading Visual C++ x86 runtime from $url ..."
+                Invoke-WebRequest -Uri $url -OutFile $vcRedistPath -UseBasicParsing
+                $vcRedistDownloaded = $true
+                break
+            } catch {
+                Log "Download failed from $url - trying the next source."
+            }
+        }
+        if ($vcRedistDownloaded) {
+            Log "Installing Visual C++ x86 runtime ..."
+            $vc = Start-Process -FilePath $vcRedistPath -ArgumentList "/install", "/quiet", "/norestart" -Wait -PassThru
+            # 3010 = installed, reboot pending; 1638 = a newer version is already installed.
+            if (@(0, 1638, 3010) -notcontains $vc.ExitCode) {
+                Log "WARNING: Visual C++ x86 runtime installer exited with code $($vc.ExitCode); continuing."
+            }
+        } else {
+            Log "WARNING: could not download the Visual C++ x86 runtime; Safe Exam Browser may fail to start."
+        }
+
+        $installerPath = Join-Path $tmpDir "SEB_x86_Setup.msi"
+        $msiLog = Join-Path $env:TEMP ("seb-msi-install-{0}.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
+        Log "Downloading Safe Exam Browser $FallbackWinVersion (x86 MSI)..."
+        Invoke-WebRequest -Uri $FallbackWinX86MsiUrl -OutFile $installerPath -UseBasicParsing
+
+        Log "Installing Safe Exam Browser (x86 MSI) ..."
+        $msi = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i", "`"$installerPath`"", "/qn", "/norestart", "/l*v", "`"$msiLog`"" -Wait -PassThru
+        if (@(0, 3010) -notcontains $msi.ExitCode) {
+            Log "ERROR: Safe Exam Browser MSI exited with code $($msi.ExitCode). Installer log: $msiLog"
+        }
+    } else {
+        $installerPath = Join-Path $tmpDir "SEB_Setup.exe"
+
+        Log "Downloading Safe Exam Browser $FallbackWinVersion..."
+        Invoke-WebRequest -Uri $FallbackWinInstallerUrl -OutFile $installerPath
+
+        Log "Installing Safe Exam Browser ..."
+        Start-Process -FilePath $installerPath -ArgumentList "/install", "/quiet", "/norestart" -Wait
+    }
 
     Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
     Log "Safe Exam Browser $FallbackWinVersion installed."
