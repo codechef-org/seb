@@ -11,14 +11,19 @@ param(
 $ErrorActionPreference = "Stop"
 
 # ---- Pinned version to install ----
-$FallbackWinVersion = "3.10.3.960"
-$FallbackWinInstallerUrl = "https://cdn.codechef.com/SafeExamBrowser/seb-win-refactoring/releases/download/v3.10.3/SEB_3.10.3.960_SetupBundle.exe"
+$FallbackWinVersion = "3.10.2.920"
+$FallbackWinInstallerUrl = "https://cdn.codechef.com/SafeExamBrowser/seb-win-refactoring/releases/download/v3.10.2/SEB_3.10.2.920_SetupBundle.exe"
+
+# Releases replaced with the pinned version even though they are newer. 3.10.3's
+# runtime integrity check falsely locks some gaming laptops (HP OMEN/Victus etc.;
+# SafeExamBrowser/seb-win-refactoring#1586). Matched on major.minor.build.
+$BlockedWinVersions = @("3.10.3")
 
 # ---- Windows on ARM (e.g. Snapdragon) ----
 # SEB has no ARM64 build. The setup bundle can fail on ARM64 (0x80070666), so ARM64
 # machines get the 32-bit MSI, which runs under emulation, and its Visual C++ x86
 # prerequisite. The bundle normally installs that prerequisite; the MSI does not.
-$FallbackWinX86MsiUrl = "https://cdn.codechef.com/SafeExamBrowser/seb-win-refactoring/releases/download/v3.10.3/SEB_3.10.3.960_x86_Setup.msi"
+$FallbackWinX86MsiUrl = "https://cdn.codechef.com/SafeExamBrowser/seb-win-refactoring/releases/download/v3.10.2/SEB_3.10.2.920_x86_Setup.msi"
 $VcRedistX86Urls = @(
     "https://cdn.codechef.com/SafeExamBrowser/prerequisites/vc_redist.x86.exe",
     "https://aka.ms/vs/17/release/vc_redist.x86.exe"
@@ -129,8 +134,15 @@ function Test-VersionGe($a, $b) {
     try { return ([version]$a) -ge ([version]$b) } catch { return $false }
 }
 
+function Test-VersionBlocked($v) {
+    try { $p = [version]$v } catch { return $false }
+    return $BlockedWinVersions -contains ("{0}.{1}.{2}" -f $p.Major, $p.Minor, [Math]::Max($p.Build, 0))
+}
+
 $needsInstall = $true
-if ($installedVersion -and (Test-VersionGe $installedVersion $FallbackWinVersion)) {
+if ($installedVersion -and (Test-VersionBlocked $installedVersion)) {
+    Log "Installed SEB $installedVersion is a release we don't use. Replacing it with the pinned version $FallbackWinVersion."
+} elseif ($installedVersion -and (Test-VersionGe $installedVersion $FallbackWinVersion)) {
     $needsInstall = $false
     Log "Installed SEB $installedVersion meets the pinned version $FallbackWinVersion - skipping install."
 } else {
