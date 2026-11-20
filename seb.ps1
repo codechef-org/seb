@@ -11,8 +11,8 @@ param(
 $ErrorActionPreference = "Stop"
 
 # ---- Pinned version to install ----
-$FallbackWinVersion = "3.10.2.920"
-$FallbackWinInstallerUrl = "https://cdn.codechef.com/SafeExamBrowser/seb-win-refactoring/releases/download/v3.10.2/SEB_3.10.2.920_SetupBundle.exe"
+$FallbackWinVersion = "3.10.3.960"
+$FallbackWinInstallerUrl = "https://cdn.codechef.com/SafeExamBrowser/seb-win-refactoring/releases/download/v3.10.3/SEB_3.10.3.960_SetupBundle.exe"
 
 # ---- Target host; defaults to production ----
 $SebHost = switch ($Environment) {

@@ -4,8 +4,8 @@
 set -euo pipefail
 
 # ---- Pinned version to install ----
-FALLBACK_MAC_VERSION="3.7"
-FALLBACK_MAC_DMG_URL="https://cdn.codechef.com/SafeExamBrowser/seb-mac/releases/download/3.7/SafeExamBrowser-3.7.dmg"
+FALLBACK_MAC_VERSION="3.7.2"
+FALLBACK_MAC_DMG_URL="https://cdn.codechef.com/SafeExamBrowser/seb-mac/releases/download/3.7.2/SafeExamBrowser-3.7.2.dmg"
 
 # ---- Args: <contest-code> [login-token] [--env production|staging|local] ----
 SEB_ENV="production"
