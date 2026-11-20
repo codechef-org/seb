@@ -50,6 +50,7 @@ if [[ -n "$LOGIN_TOKEN" ]]; then
 fi
 LOG_FILE="/tmp/seb-launch-$(date +%Y%m%d-%H%M%S).log"
 APP_PATH="/Applications/Safe Exam Browser.app"
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 BUNDLE_ID_PRIMARY="org.safeexambrowser.SafeExamBrowser"
 BUNDLE_ID_ALT="org.safeexambrowser.Safe-Exam-Browser"
 
@@ -127,7 +128,21 @@ if $needs_install; then
   sudo ditto "$SRC_APP" "$APP_PATH"
   sudo xattr -cr "$APP_PATH" || true
 
+  # Unmount the installer now rather than at exit: while it is mounted, Launch
+  # Services can bind seb:// to the copy inside the image, and the terminal kill
+  # at the end of this script can end it before the EXIT trap runs.
+  cleanup
+  trap - EXIT
+
   log "Safe Exam Browser $FALLBACK_MAC_VERSION installed."
+fi
+
+# ---- 3b. Register SEB with Launch Services ----
+# Removing the old app drops its seb:// and sebs:// registration, and macOS
+# indexes a freshly copied app only after a delay. Without this, `open` below
+# fails with "no application set to open the URL" in the same session.
+if [[ -d "$APP_PATH" && -x "$LSREGISTER" ]]; then
+  "$LSREGISTER" -f "$APP_PATH" >/dev/null 2>&1 || log "WARNING: could not register Safe Exam Browser with Launch Services."
 fi
 
 # ---- 4. Known-conflict reminder (TCC permissions cannot be granted non-interactively) ----
@@ -145,7 +160,12 @@ log "Launching Safe Exam Browser with start URL..."
 # killall could win before `open` had actually handed the launch request to
 # Launch Services, killing the terminal (and this script, and the in-flight
 # open) before SEB ever launched.
-open "$START_URL"
+if ! open "$START_URL" 2>>"$LOG_FILE"; then
+  # Fall back to handing the URL to the installed app directly, which does not
+  # depend on the seb:// scheme registration.
+  log "Opening the exam link failed - handing it to Safe Exam Browser directly..."
+  open -a "$APP_PATH" "$START_URL"
+fi
 case "${TERM_PROGRAM:-}" in
   Apple_Terminal)
     killall -9 Terminal >/dev/null 2>&1 &
